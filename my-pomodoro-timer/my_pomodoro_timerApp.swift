@@ -8,5 +8,20 @@ struct PomodoroApp: App {
         Settings {
             EmptyView()
         }
+        .commands {
+            SettingsCommands(settings: appDelegate.settings, onSettings: appDelegate.showSettings)
+        }
+    }
+}
+
+private struct SettingsCommands: Commands {
+    @ObservedObject var settings: AppSettings
+    let onSettings: () -> Void
+
+    var body: some Commands {
+        CommandGroup(replacing: .appSettings) {
+            Button(settings.text("Settings…", "设置…"), action: onSettings)
+                .keyboardShortcut(",", modifiers: .command)
+        }
     }
 }

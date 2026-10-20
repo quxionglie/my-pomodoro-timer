@@ -65,7 +65,38 @@ struct PomodoroTimerChecks {
         timer.refresh()
         precondition(reminders == 2)
         checkStatistics()
+        checkSettings()
         print("PASS: defaults, all durations, invalid selection, rounding, duplicate start, expiry, persistent reminder, Stop, restart, wake after deadline")
+    }
+
+    @MainActor
+    private static func checkSettings() {
+        let suite = "PomodoroSettingsChecks.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let settings = AppSettings(defaults: defaults)
+        precondition(settings.language == .english)
+        settings.language = .simplifiedChinese
+        precondition(AppSettings(defaults: defaults).language == .simplifiedChinese)
+        precondition(settings.text("Settings", "设置") == "设置")
+        settings.language = .english
+        precondition(AppSettings(defaults: defaults).language == .english)
+        defaults.set("unsupported-language", forKey: "appLanguage.v1")
+        precondition(AppSettings(defaults: defaults).language == .english)
+
+        let timer = PomodoroTimer(automaticallyTicks: false, defaults: defaults)
+        timer.select(minutes: 45)
+        let restored = PomodoroTimer(automaticallyTicks: false, defaults: defaults)
+        precondition(restored.selectedMinutes == 45 && restored.timeText == "45:00")
+        restored.start()
+        restored.select(minutes: 90)
+        settings.language = .simplifiedChinese
+        precondition(restored.selectedMinutes == 45 && restored.phase == .running)
+        precondition(PomodoroTimer(automaticallyTicks: false, defaults: defaults).selectedMinutes == 45)
+        defaults.set(7, forKey: "focusDurationMinutes.v1")
+        let fallback = PomodoroTimer(automaticallyTicks: false, defaults: defaults)
+        precondition(fallback.selectedMinutes == 30 && fallback.timeText == "30:00")
+        print("PASS: language and duration persistence, unsupported values, language change during timer, locked duration")
     }
 
     @MainActor

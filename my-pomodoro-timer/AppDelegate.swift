@@ -4,20 +4,23 @@ import SwiftUI
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let timer: PomodoroTimer
+    let settings: AppSettings
     private var statusItem: NSStatusItem!
     private var idleStatusImage: NSImage?
     private var lastProgressPercent: Int?
     private let popover = NSPopover()
     private var statisticsWindow: NSWindow?
+    private var settingsWindow: NSWindow?
     private var mainWindow: NSWindow?
     private var reminderPanel: NSPanel?
 
     override convenience init() {
-        self.init(timer: PomodoroTimer(defaults: .standard))
+        self.init(timer: PomodoroTimer(defaults: .standard), settings: AppSettings(defaults: .standard))
     }
 
-    init(timer: PomodoroTimer) {
+    init(timer: PomodoroTimer, settings: AppSettings? = nil) {
         self.timer = timer
+        self.settings = settings ?? AppSettings()
         super.init()
     }
 
@@ -26,6 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         configureStatusItem()
         timer.onChange = { [weak self] in self?.updateStatusItem() }
         timer.onFinish = { [weak self] in self?.showReminder() }
+        settings.onChange = { [weak self] in self?.updateLanguage() }
         NSWorkspace.shared.notificationCenter.addObserver(
             self, selector: #selector(didWake),
             name: NSWorkspace.didWakeNotification, object: nil
@@ -75,19 +79,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func controls() -> ContentView {
         ContentView(
             timer: timer,
+            settings: settings,
             onStart: { [weak self] in self?.startTimer() },
             onShowReminder: { [weak self] in self?.showReminder() },
-            onStatistics: { [weak self] in self?.showStatistics() },
+            onSettings: { [weak self] in self?.showSettings() },
             onQuit: { NSApp.terminate(nil) }
         )
+    }
+
+    func showSettings() {
+        popover.performClose(nil)
+        if settingsWindow == nil {
+            let controller = NSHostingController(rootView: SettingsView(
+                timer: timer, settings: settings,
+                onStatistics: { [weak self] in self?.showStatistics() }
+            ))
+            let window = NSWindow(contentViewController: controller)
+            window.title = settings.text("Settings", "设置")
+            window.styleMask = [.titled, .closable, .miniaturizable]
+            window.isReleasedWhenClosed = false
+            window.center()
+            settingsWindow = window
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        settingsWindow?.makeKeyAndOrderFront(nil)
+    }
+
+    private func updateLanguage() {
+        settingsWindow?.title = settings.text("Settings", "设置")
+        statisticsWindow?.title = settings.text("Statistics", "统计")
+        reminderPanel?.title = settings.text("Session complete", "本轮已完成")
+        // The progress image includes a localized accessibility description.
+        lastProgressPercent = nil
+        updateStatusItem()
     }
 
     private func showStatistics() {
         popover.performClose(nil)
         if statisticsWindow == nil {
-            let controller = NSHostingController(rootView: StatisticsView(timer: timer))
+            let controller = NSHostingController(rootView: StatisticsView(timer: timer, settings: settings))
             let window = NSWindow(contentViewController: controller)
-            window.title = "Statistics"
+            window.title = settings.text("Statistics", "统计")
             window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
             window.isReleasedWhenClosed = false
             window.setContentSize(NSSize(width: 600, height: 480))
@@ -118,6 +150,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         timer.start()
         popover.performClose(nil)
         mainWindow?.orderOut(nil)
+        settingsWindow?.orderOut(nil)
+        statisticsWindow?.orderOut(nil)
         NSApp.hide(nil)
     }
 
@@ -136,13 +170,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         switch timer.phase {
         case .idle:
             button.title = ""
-            button.toolTip = "PomodoroTimer - Click to start focusing"
+            button.toolTip = settings.text("PomodoroTimer - Click to start focusing", "PomodoroTimer - 点击开始专注")
         case .running:
             button.title = ""
-            button.toolTip = "PomodoroTimer - \(timer.timeText) remaining - Click to stop"
+            button.toolTip = settings.text("PomodoroTimer - \(timer.timeText) remaining - Click to stop", "PomodoroTimer - 剩余 \(timer.timeText) - 点击停止")
         case .finished:
-            button.title = " Time’s up"
-            button.toolTip = "PomodoroTimer - Please dismiss the reminder"
+            button.title = settings.text(" Time’s up", " 时间到")
+            button.toolTip = settings.text("PomodoroTimer - Please dismiss the reminder", "PomodoroTimer - 请关闭提醒")
         }
         button.attributedTitle = AppTypography.nativeText(button.title, size: 12)
     }
@@ -179,7 +213,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return true
         }
         image.isTemplate = false
-        image.accessibilityDescription = "PomodoroTimer - \(percent)% complete"
+        image.accessibilityDescription = settings.text("PomodoroTimer - \(percent)% complete", "PomodoroTimer - 已完成 \(percent)%")
         return image
     }
 
@@ -213,8 +247,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 contentRect: .zero, styleMask: [.titled],
                 backing: .buffered, defer: false
             )
-            panel.title = "Session complete"
+            panel.title = settings.text("Session complete", "本轮已完成")
             let controller = NSHostingController(rootView: ReminderView(
+                settings: settings,
                 minutes: timer.selectedMinutes,
                 onDismiss: { [weak self] in self?.dismissReminder() }
             ))

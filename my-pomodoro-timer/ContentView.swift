@@ -2,9 +2,10 @@ import SwiftUI
 
 struct ContentView: View {
     @ObservedObject var timer: PomodoroTimer
+    @ObservedObject var settings: AppSettings
     var onStart: () -> Void
     var onShowReminder: () -> Void
-    var onStatistics: () -> Void
+    var onSettings: () -> Void
     var onQuit: () -> Void
 
     private let accent = Color(red: 0.87, green: 0.29, blue: 0.22)
@@ -32,7 +33,7 @@ struct ContentView: View {
                     .stroke(accent, style: StrokeStyle(lineWidth: 8, lineCap: .round))
                     .rotationEffect(.degrees(-90))
                 VStack(spacing: 8) {
-                    Text(timer.phase == .finished ? "Time’s up" : timer.timeText)
+                    Text(timer.phase == .finished ? settings.text("Time’s up", "时间到") : timer.timeText)
                         .font(timer.phase == .finished
                               ? AppTypography.medium(42)
                               : AppTypography.latin(50))
@@ -45,14 +46,6 @@ struct ContentView: View {
             .frame(width: 240, height: 240)
             .padding(.vertical, 4)
             .accessibilityElement(children: .combine)
-
-            DurationPicker(selection: Binding(
-                get: { timer.selectedMinutes },
-                set: { timer.select(minutes: $0) }
-            ))
-            .fixedSize()
-            .frame(maxWidth: .infinity)
-            .disabled(timer.phase != .idle)
 
             Button(action: primaryAction) {
                 Label {
@@ -69,25 +62,25 @@ struct ContentView: View {
             .controlSize(.large)
 
             AppTypography.text(timer.phase == .running
-                 ? "Timer is running in the background.\nClick Stop to end your session."
-                 : "Start to continue in the menu bar.\nDismiss the reminder when time is up.", size: 14)
+                 ? settings.text("Timer is running in the background.\nClick Stop to end your session.", "计时正在后台进行。\n点击停止即可结束本轮专注。")
+                 : settings.text("Start to continue in the menu bar.\nDismiss the reminder when time is up.", "开始后将在菜单栏继续计时。\n时间到后，请手动关闭提醒。"), size: 14)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
 
             Divider()
             HStack {
-                Button(action: onStatistics) {
-                    Label("Statistics", systemImage: "chart.bar.xaxis")
+                Button(action: onSettings) {
+                    Label(settings.text("Settings", "设置"), systemImage: "gearshape")
                         .labelStyle(.iconOnly)
                         .font(AppTypography.medium(14))
                 }
                 .buttonStyle(.plain)
-                .help("Statistics")
+                .help(settings.text("Settings", "设置"))
                 .foregroundStyle(.secondary)
                 Spacer()
                 Button(action: onQuit) {
-                    Text("Quit").font(AppTypography.medium(14))
+                    Text(settings.text("Quit", "退出")).font(AppTypography.medium(14))
                 }
                     .buttonStyle(.plain)
                     .foregroundStyle(.secondary)
@@ -96,21 +89,22 @@ struct ContentView: View {
         .padding(28)
         .frame(width: 390)
         .background(Color(nsColor: .windowBackgroundColor))
+        .environment(\.locale, settings.language.locale)
     }
 
     private var statusText: String {
         switch timer.phase {
-        case .idle: "Ready when you are"
-        case .running: "Focus in progress"
-        case .finished: "Take a short break"
+        case .idle: settings.text("Ready when you are", "准备好即可开始")
+        case .running: settings.text("Focus in progress", "专注进行中")
+        case .finished: settings.text("Take a short break", "休息一下")
         }
     }
 
     private var buttonTitle: String {
         switch timer.phase {
-        case .idle: "Start"
-        case .running: "Stop"
-        case .finished: "Show reminder"
+        case .idle: settings.text("Start", "开始")
+        case .running: settings.text("Stop", "停止")
+        case .finished: settings.text("Show reminder", "显示提醒")
         }
     }
 
@@ -131,53 +125,8 @@ struct ContentView: View {
     }
 }
 
-// Set the native control's font explicitly: the SwiftUI menu picker can ignore
-// custom fonts on macOS, including the font of its selected value.
-private struct DurationPicker: NSViewRepresentable {
-    @Binding var selection: Int
-    @Environment(\.isEnabled) private var isEnabled
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(selection: $selection)
-    }
-
-    func makeNSView(context: Context) -> NSPopUpButton {
-        let button = NSPopUpButton(frame: .zero, pullsDown: false)
-        button.controlSize = .large
-        button.font = AppTypography.nativeFont(18)
-        button.menu?.font = button.font
-        for minutes in PomodoroTimer.durations {
-            button.addItem(withTitle: "\(minutes) min")
-            button.lastItem?.tag = minutes
-            button.lastItem?.attributedTitle = AppTypography.nativeText("\(minutes) min", size: 18)
-        }
-        button.target = context.coordinator
-        button.action = #selector(Coordinator.selectDuration(_:))
-        button.setAccessibilityLabel("Focus duration")
-        return button
-    }
-
-    func updateNSView(_ button: NSPopUpButton, context: Context) {
-        context.coordinator.selection = $selection
-        button.selectItem(withTag: selection)
-        button.isEnabled = isEnabled
-    }
-
-    final class Coordinator: NSObject {
-        var selection: Binding<Int>
-
-        init(selection: Binding<Int>) {
-            self.selection = selection
-        }
-
-        @objc func selectDuration(_ sender: NSPopUpButton) {
-            guard let item = sender.selectedItem else { return }
-            selection.wrappedValue = item.tag
-        }
-    }
-}
-
 struct ReminderView: View {
+    @ObservedObject var settings: AppSettings
     let minutes: Int
     let onDismiss: () -> Void
 
@@ -186,25 +135,26 @@ struct ReminderView: View {
             Image(systemName: "bell.badge.fill")
                 .font(.system(size: 48))
                 .foregroundStyle(Color(red: 0.87, green: 0.29, blue: 0.22))
-            Text("Time for a break")
+            Text(settings.text("Time for a break", "该休息了"))
                 .font(AppTypography.medium(24))
-            AppTypography.text("You completed \(minutes) minutes of focus.\nStand up, stretch, and rest your eyes.", size: 17)
+            AppTypography.text(settings.text("You completed \(minutes) minutes of focus.\nStand up, stretch, and rest your eyes.", "你已完成 \(minutes) 分钟的专注。\n起身活动一下，让眼睛休息片刻。"), size: 17)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
                 .foregroundStyle(.secondary)
                 .lineSpacing(5)
             Button(action: onDismiss) {
-                Text("Dismiss reminder").font(AppTypography.medium(18))
+                Text(settings.text("Dismiss reminder", "关闭提醒")).font(AppTypography.medium(18))
             }
                 .buttonStyle(.borderedProminent)
                 .tint(Color(red: 0.87, green: 0.29, blue: 0.22))
                 .controlSize(.large)
-            Text("This reminder stays until you dismiss it.")
+            Text(settings.text("This reminder stays until you dismiss it.", "此提醒会一直显示，直到你手动关闭。"))
                 .font(AppTypography.regular(14))
                 .foregroundStyle(.secondary)
         }
         .padding(36)
         .frame(width: 480)
         .background(Color(nsColor: .windowBackgroundColor))
+        .environment(\.locale, settings.language.locale)
     }
 }

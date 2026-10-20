@@ -31,6 +31,11 @@ final class PomodoroTimer: ObservableObject {
         self.defaults = defaults
         self.now = now
         self.automaticallyTicks = automaticallyTicks
+        if let saved = defaults?.object(forKey: "focusDurationMinutes.v1") as? Int,
+           Self.durations.contains(saved) {
+            selectedMinutes = saved
+            remainingSeconds = saved * 60
+        }
         if let data = defaults?.data(forKey: historyKey),
            let saved = try? JSONDecoder().decode([FocusSession].self, from: data) {
             sessions = saved
@@ -54,6 +59,7 @@ final class PomodoroTimer: ObservableObject {
         guard phase == .idle, Self.durations.contains(minutes) else { return }
         selectedMinutes = minutes
         remainingSeconds = minutes * 60
+        defaults?.set(minutes, forKey: "focusDurationMinutes.v1")
         onChange?()
     }
 

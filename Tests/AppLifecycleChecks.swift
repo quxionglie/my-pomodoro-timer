@@ -8,7 +8,8 @@ struct AppLifecycleChecks {
         let app = NSApplication.shared
         var now = Date()
         let timer = PomodoroTimer(now: { now }, automaticallyTicks: false)
-        let delegate = AppDelegate(timer: timer)
+        let settings = AppSettings()
+        let delegate = AppDelegate(timer: timer, settings: settings)
         app.delegate = delegate
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -17,23 +18,54 @@ struct AppLifecycleChecks {
                   let controls = mainWindow.contentViewController as? NSHostingController<ContentView>
             else { fatalError("Initial controls window missing") }
             precondition(mainWindow.isVisible)
+            precondition(durationPicker(in: mainWindow.contentView!) == nil,
+                         "Home must not contain a duration picker")
             capture(mainWindow, name: "controls")
-            controls.rootView.onStatistics()
+            controls.rootView.onSettings()
+            guard let settingsWindow = app.windows.first(where: { $0.title == "Settings" }),
+                  let settingsController = settingsWindow.contentViewController as? NSHostingController<SettingsView>
+            else { fatalError("Settings window missing") }
+            capture(settingsWindow, name: "settings")
+            guard let picker = durationPicker(in: settingsWindow.contentView!) else {
+                fatalError("Duration picker missing from settings")
+            }
+            precondition(picker.itemArray.map(\.tag) == PomodoroTimer.durations)
+            // Drive the same target/action as an actual menu selection.
+            picker.selectItem(withTag: 45)
+            _ = picker.target?.perform(picker.action, with: picker)
+            precondition(timer.selectedMinutes == 45 && timer.timeText == "45:00")
+            timer.select(minutes: 30)
+            settingsController.rootView.onStatistics()
             guard let statisticsWindow = app.windows.first(where: { $0.title == "Statistics" }),
                   statisticsWindow.contentViewController is NSHostingController<StatisticsView>
             else { fatalError("Statistics window missing") }
             precondition(statisticsWindow.isVisible)
             capture(statisticsWindow, name: "statistics-empty")
+            settings.language = .simplifiedChinese
+            precondition(settingsWindow.title == "设置" && statisticsWindow.title == "统计")
+            capture(settingsWindow, name: "settings-zh")
+            precondition(picker.selectedItem?.title == "30 分钟")
+            capture(mainWindow, name: "controls-zh")
+            capture(statisticsWindow, name: "statistics-empty-zh")
+            settings.language = .english
+            settingsWindow.close()
             statisticsWindow.close()
             controls.rootView.onStart()
             precondition(timer.phase == .running && !mainWindow.isVisible)
             delegate.perform(NSSelectorFromString("togglePopover"))
             guard let menuWindow = app.windows.first(where: {
-                $0 !== mainWindow && $0.isVisible && $0.frame.width >= 350 && $0.frame.height >= 500
+                $0 !== mainWindow && $0.isVisible && $0.contentViewController is NSHostingController<ContentView>
             }) else { fatalError("Menu-bar controls did not open while running") }
             capture(menuWindow, name: "menu-controls")
             delegate.perform(NSSelectorFromString("togglePopover"))
             precondition(!menuWindow.isVisible)
+            controls.rootView.onSettings()
+            capture(settingsWindow, name: "settings-running")
+            precondition(!picker.isEnabled, "Duration must be locked while running")
+            settings.language = .simplifiedChinese
+            precondition(timer.phase == .running && timer.remainingSeconds == 1800)
+            settings.language = .english
+            settingsWindow.close()
 
             now.addTimeInterval(1801)
             timer.refresh()
@@ -46,6 +78,10 @@ struct AppLifecycleChecks {
             precondition(!panel.styleMask.contains(.miniaturizable))
             precondition(panel.collectionBehavior.contains(.canJoinAllSpaces))
             capture(panel, name: "reminder")
+            settings.language = .simplifiedChinese
+            precondition(panel.title == "本轮已完成")
+            capture(panel, name: "reminder-zh")
+            settings.language = .english
             panel.performClose(nil)
             panel.cancelOperation(nil)
             precondition(panel.isVisible && timer.phase == .finished)
@@ -62,9 +98,9 @@ struct AppLifecycleChecks {
                 timer.start()
                 now.addTimeInterval(60)
                 timer.stop()
-                controls.rootView.onStatistics()
+                settingsController.rootView.onStatistics()
                 precondition(statisticsWindow.isVisible)
-                let renderer = ImageRenderer(content: StatisticsView(timer: timer)
+                let renderer = ImageRenderer(content: StatisticsView(timer: timer, settings: settings)
                     .frame(width: 600, height: 480)
                     .background(Color(nsColor: .windowBackgroundColor)))
                 renderer.scale = 2
@@ -80,12 +116,21 @@ struct AppLifecycleChecks {
                     toFile: "build/statistics-example.md", atomically: true, encoding: .utf8
                 )
                 precondition(delegate.applicationShouldTerminate(app) == .terminateNow)
-                print("PASS: initial window, menu-bar-only policy, Start hides window, persistent floating reminder, close/Escape/quit guards, explicit dismissal, statistics window and live counts")
+                print("PASS: settings entry, duration selection and locking, live bilingual windows, initial window, menu-bar controls, persistent reminder, quit guards, statistics and live counts")
                 app.terminate(nil)
             }
         }
         app.run()
         withExtendedLifetime(delegate) {}
+    }
+
+    @MainActor
+    private static func durationPicker(in view: NSView) -> NSPopUpButton? {
+        if let picker = view as? NSPopUpButton { return picker }
+        for child in view.subviews {
+            if let picker = durationPicker(in: child) { return picker }
+        }
+        return nil
     }
 
     @MainActor
