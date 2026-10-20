@@ -1,17 +1,12 @@
-//
-//  my_pomodoro_timerApp.swift
-//  my-pomodoro-timer
-//
-//  Created by lie on 20/10/2026.
-//
-
 import SwiftUI
 
 @main
-struct my_pomodoro_timerApp: App {
+struct PomodoroApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
     var body: some Scene {
-        WindowGroup {
-            ContentView()
+        Settings {
+            EmptyView()
         }
     }
 }
