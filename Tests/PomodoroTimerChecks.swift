@@ -78,7 +78,18 @@ struct PomodoroTimerChecks {
         precondition(settings.language == .english)
         settings.language = .simplifiedChinese
         precondition(AppSettings(defaults: defaults).language == .simplifiedChinese)
-        precondition(settings.text("Settings", "设置") == "设置")
+        precondition(settings.text(.settings) == "设置")
+        settings.language = .traditionalChinese
+        precondition(AppSettings(defaults: defaults).language == .traditionalChinese)
+        precondition(settings.text(.settings) == "設定")
+        precondition(settings.text(.minutes, 45) == "45 分鐘")
+        precondition(settings.text(.version, "1.0") == "版本 1.0")
+        precondition(settings.text(.completedFocus, 30) ==
+                     "你已完成 30 分鐘的專注。\n起身活動一下，讓眼睛休息片刻。")
+        precondition(settings.text(.runningTooltip, "29:59") ==
+                     "PomodoroTimer - 剩餘 29:59 - 點擊停止")
+        precondition(settings.text(.progressDescription, 25) == "PomodoroTimer - 已完成 25%")
+        checkTranslationResources()
         settings.language = .english
         precondition(AppSettings(defaults: defaults).language == .english)
         defaults.set("unsupported-language", forKey: "appLanguage.v1")
@@ -97,6 +108,30 @@ struct PomodoroTimerChecks {
         let fallback = PomodoroTimer(automaticallyTicks: false, defaults: defaults)
         precondition(fallback.selectedMinutes == 30 && fallback.timeText == "30:00")
         print("PASS: language and duration persistence, unsupported values, language change during timer, locked duration")
+    }
+
+    private static func checkTranslationResources() {
+        let expectedKeys = Set(AppText.allCases.map(\.rawValue))
+        let placeholders = try! NSRegularExpression(pattern: "%[@d%]")
+        var english: [String: String] = [:]
+        for language in AppLanguage.allCases {
+            let path = Bundle.main.path(forResource: language.rawValue, ofType: "lproj")!
+            let data = try! Data(contentsOf: URL(fileURLWithPath: path).appendingPathComponent("Localizable.strings"))
+            let translations = try! PropertyListSerialization.propertyList(from: data, format: nil) as! [String: String]
+            precondition(Set(translations.keys) == expectedKeys, "Every language must translate every key")
+            if language == .english { english = translations }
+            for key in expectedKeys {
+                let value = translations[key]!
+                precondition(!value.isEmpty)
+                func tokens(_ text: String) -> [String] {
+                    placeholders.matches(in: text, range: NSRange(text.startIndex..., in: text)).map {
+                        String(text[Range($0.range, in: text)!])
+                    }
+                }
+                precondition(tokens(value) == tokens(english[key]!), "Format placeholders must match for \(key)")
+            }
+        }
+        print("PASS: complete English, Simplified Chinese and Traditional Chinese resources and format placeholders")
     }
 
     @MainActor

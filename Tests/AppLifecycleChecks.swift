@@ -47,7 +47,20 @@ struct AppLifecycleChecks {
             precondition(picker.selectedItem?.title == "30 分钟")
             capture(mainWindow, name: "controls-zh")
             capture(statisticsWindow, name: "statistics-empty-zh")
-            settings.language = .english
+            settings.language = .traditionalChinese
+            capture(settingsWindow, name: "settings-zh-Hant")
+            precondition(settingsWindow.title == "設定" && statisticsWindow.title == "統計")
+            precondition(picker.selectedItem?.title == "30 分鐘")
+            guard let languageControl = settingsWindow.contentView.flatMap({ languagePicker(in: $0) }) else {
+                fatalError("Language picker missing")
+            }
+            precondition(languageControl.itemTitles == ["English", "简体中文", "繁體中文"])
+            precondition(languageControl.selectedItem?.tag == 2)
+            capture(mainWindow, name: "controls-zh-Hant")
+            capture(statisticsWindow, name: "statistics-empty-zh-Hant")
+            languageControl.selectItem(withTag: 0)
+            _ = languageControl.target?.perform(languageControl.action, with: languageControl)
+            precondition(settings.language == .english && settingsWindow.title == "Settings")
             settingsWindow.close()
             statisticsWindow.close()
             controls.rootView.onStart()
@@ -81,6 +94,9 @@ struct AppLifecycleChecks {
             settings.language = .simplifiedChinese
             precondition(panel.title == "本轮已完成")
             capture(panel, name: "reminder-zh")
+            settings.language = .traditionalChinese
+            precondition(panel.title == "本輪已完成")
+            capture(panel, name: "reminder-zh-Hant")
             settings.language = .english
             panel.performClose(nil)
             panel.cancelOperation(nil)
@@ -116,12 +132,21 @@ struct AppLifecycleChecks {
                     toFile: "build/statistics-example.md", atomically: true, encoding: .utf8
                 )
                 precondition(delegate.applicationShouldTerminate(app) == .terminateNow)
-                print("PASS: settings entry, duration selection and locking, live bilingual windows, initial window, menu-bar controls, persistent reminder, quit guards, statistics and live counts")
+                print("PASS: settings entry, duration selection and locking, live trilingual windows, initial window, menu-bar controls, persistent reminder, quit guards, statistics and live counts")
                 app.terminate(nil)
             }
         }
         app.run()
         withExtendedLifetime(delegate) {}
+    }
+
+    @MainActor
+    private static func languagePicker(in view: NSView) -> NSPopUpButton? {
+        if let picker = view as? NSPopUpButton, picker.itemTitles.contains("繁體中文") { return picker }
+        for child in view.subviews {
+            if let picker = languagePicker(in: child) { return picker }
+        }
+        return nil
     }
 
     @MainActor

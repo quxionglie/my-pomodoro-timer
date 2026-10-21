@@ -4,20 +4,18 @@ import Foundation
 enum AppLanguage: String, CaseIterable, Identifiable {
     case english = "en"
     case simplifiedChinese = "zh-Hans"
+    case traditionalChinese = "zh-Hant"
 
     var id: String { rawValue }
     var name: String {
         switch self {
         case .english: "English"
         case .simplifiedChinese: "简体中文"
+        case .traditionalChinese: "繁體中文"
         }
     }
 
     var locale: Locale { Locale(identifier: rawValue) }
-
-    func text(_ english: String, _ chinese: String) -> String {
-        self == .english ? english : chinese
-    }
 }
 
 @MainActor
@@ -37,7 +35,7 @@ final class AppSettings: ObservableObject {
             .flatMap(AppLanguage.init(rawValue:)) ?? .english
     }
 
-    func text(_ english: String, _ chinese: String) -> String {
-        language.text(english, chinese)
+    func text(_ key: AppText, _ arguments: CVarArg...) -> String {
+        language.localizedText(key, arguments: arguments)
     }
 }

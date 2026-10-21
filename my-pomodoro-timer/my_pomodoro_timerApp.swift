@@ -20,7 +20,7 @@ private struct SettingsCommands: Commands {
 
     var body: some Commands {
         CommandGroup(replacing: .appSettings) {
-            Button(settings.text("Settings…", "设置…"), action: onSettings)
+            Button(settings.text(.settingsMenu), action: onSettings)
                 .keyboardShortcut(",", modifiers: .command)
         }
     }

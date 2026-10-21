@@ -7,39 +7,38 @@ struct SettingsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
-            Label(settings.text("Settings", "设置"), systemImage: "gearshape")
+            Label(settings.text(.settings), systemImage: "gearshape")
                 .font(AppTypography.medium(24))
 
             VStack(alignment: .leading, spacing: 10) {
-                settingRow(settings.text("Focus duration", "专注时长")) {
+                settingRow(settings.text(.focusDuration)) {
                     SettingsPicker(selection: Binding(
                         get: { timer.selectedMinutes },
                         set: { timer.select(minutes: $0) }
                     ), options: PomodoroTimer.durations.map {
-                        (value: $0, title: settings.text("\($0) min", "\($0) 分钟"))
-                    }, accessibilityLabel: settings.text("Focus duration", "专注时长"))
+                        (value: $0, title: settings.text(.minutes, $0))
+                    }, accessibilityLabel: settings.text(.focusDuration))
                     .disabled(timer.phase != .idle)
                 }
                 if timer.phase != .idle {
-                    Text(settings.text("You can change the duration after this session ends.",
-                                       "本轮计时结束并关闭提醒后，即可修改时长。"))
+                    Text(settings.text(.durationLocked))
                         .font(AppTypography.regular(13))
                         .foregroundStyle(.secondary)
                 }
             }
 
             Divider()
-            settingRow(settings.text("Language", "语言")) {
+            settingRow(settings.text(.language)) {
                 SettingsPicker(selection: Binding(
-                    get: { settings.language == .english ? 0 : 1 },
-                    set: { settings.language = $0 == 0 ? .english : .simplifiedChinese }
-                ), options: [(value: 0, title: "English"), (value: 1, title: "简体中文")],
-                   accessibilityLabel: settings.text("Language", "语言"))
+                    get: { AppLanguage.allCases.firstIndex(of: settings.language) ?? 0 },
+                    set: { settings.language = AppLanguage.allCases[$0] }
+                ), options: AppLanguage.allCases.enumerated().map { (value: $0.offset, title: $0.element.name) },
+                   accessibilityLabel: settings.text(.language))
             }
 
             Divider()
             Button(action: onStatistics) {
-                Label(settings.text("Statistics", "统计"), systemImage: "chart.bar.xaxis")
+                Label(settings.text(.statistics), systemImage: "chart.bar.xaxis")
                     .font(AppTypography.medium(16))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 4)
@@ -73,7 +72,7 @@ struct SettingsView: View {
 
     private var versionText: String {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
-        return settings.text("Version \(version)", "版本 \(version)")
+        return settings.text(.version, version)
     }
 }
 

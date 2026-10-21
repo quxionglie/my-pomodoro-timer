@@ -11,20 +11,20 @@ struct StatisticsView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
-                Text(settings.text("Statistics", "统计")).font(AppTypography.medium(24))
+                Text(settings.text(.statistics)).font(AppTypography.medium(24))
                 Spacer()
-                Button(settings.text("Export Markdown…", "导出 Markdown…")) {
+                Button(settings.text(.exportMarkdown)) {
                     timer.refresh()
                     exporting = true
                 }
                 .disabled(timer.sessions.isEmpty)
             }
-            Text(settings.text("Sessions are grouped by their local start date.", "按每轮开始时的本地日期分组。"))
+            Text(settings.text(.groupingHint))
                 .font(AppTypography.regular(14))
                 .foregroundStyle(.secondary)
             if timer.sessions.isEmpty {
                 Spacer()
-                Text(settings.text("No sessions yet. Start a timer to see your statistics.", "暂无记录。开始计时后即可查看统计。"))
+                Text(settings.text(.emptyStatistics))
                     .frame(maxWidth: .infinity)
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -35,9 +35,9 @@ struct StatisticsView: View {
                             VStack(alignment: .leading, spacing: 10) {
                                 Text(daily.day).font(AppTypography.medium(18))
                                 HStack {
-                                    metric(settings.text("Starts", "开始次数"), value: daily.starts)
-                                    metric(settings.text("Manual stops", "手动停止"), value: daily.stops)
-                                    metric(settings.text("Completed", "已完成"), value: daily.completions)
+                                    metric(settings.text(.starts), value: daily.starts)
+                                    metric(settings.text(.manualStops), value: daily.stops)
+                                    metric(settings.text(.completed), value: daily.completions)
                                 }
                                 Divider()
                             }
@@ -48,7 +48,7 @@ struct StatisticsView: View {
             }
             HStack {
                 Spacer()
-                Button(settings.text("Clear All…", "清空全部…"), role: .destructive) {
+                Button(settings.text(.clearAllMenu), role: .destructive) {
                     confirmingClear = true
                 }
                 .disabled(timer.sessions.isEmpty)
@@ -63,19 +63,19 @@ struct StatisticsView: View {
                       defaultFilename: "PomodoroTimer-Statistics.md") { result in
             if case .failure(let error) = result { exportError = error.localizedDescription }
         }
-        .alert(settings.text("Export failed", "导出失败"), isPresented: Binding(
+        .alert(settings.text(.exportFailed), isPresented: Binding(
             get: { exportError != nil },
             set: { if !$0 { exportError = nil } }
         )) {
-            Button(settings.text("OK", "好")) { exportError = nil }
+            Button(settings.text(.ok)) { exportError = nil }
         } message: {
             Text(exportError ?? "")
         }
-        .alert(settings.text("Clear all statistics?", "清空全部统计？"), isPresented: $confirmingClear) {
-            Button(settings.text("Cancel", "取消"), role: .cancel) {}
-            Button(settings.text("Clear All", "清空全部"), role: .destructive) { timer.clearStatistics() }
+        .alert(settings.text(.clearAllTitle), isPresented: $confirmingClear) {
+            Button(settings.text(.cancel), role: .cancel) {}
+            Button(settings.text(.clearAll), role: .destructive) { timer.clearStatistics() }
         } message: {
-            Text(settings.text("All saved statistics, including the current session record, will be permanently deleted. A running timer will continue, but its session will no longer be recorded.", "所有已保存的统计（包括当前计时记录）将被永久删除。正在进行的计时会继续，但本轮将不再计入统计。"))
+            Text(settings.text(.clearAllMessage))
         }
         .environment(\.locale, settings.language.locale)
     }

@@ -95,7 +95,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 onStatistics: { [weak self] in self?.showStatistics() }
             ))
             let window = NSWindow(contentViewController: controller)
-            window.title = settings.text("Settings", "设置")
+            window.title = settings.text(.settings)
             window.styleMask = [.titled, .closable, .miniaturizable]
             window.isReleasedWhenClosed = false
             window.center()
@@ -106,9 +106,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func updateLanguage() {
-        settingsWindow?.title = settings.text("Settings", "设置")
-        statisticsWindow?.title = settings.text("Statistics", "统计")
-        reminderPanel?.title = settings.text("Session complete", "本轮已完成")
+        settingsWindow?.title = settings.text(.settings)
+        statisticsWindow?.title = settings.text(.statistics)
+        reminderPanel?.title = settings.text(.sessionComplete)
         // The progress image includes a localized accessibility description.
         lastProgressPercent = nil
         updateStatusItem()
@@ -119,7 +119,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if statisticsWindow == nil {
             let controller = NSHostingController(rootView: StatisticsView(timer: timer, settings: settings))
             let window = NSWindow(contentViewController: controller)
-            window.title = settings.text("Statistics", "统计")
+            window.title = settings.text(.statistics)
             window.styleMask = [.titled, .closable, .miniaturizable, .resizable]
             window.isReleasedWhenClosed = false
             window.setContentSize(NSSize(width: 600, height: 480))
@@ -170,13 +170,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         switch timer.phase {
         case .idle:
             button.title = ""
-            button.toolTip = settings.text("PomodoroTimer - Click to start focusing", "PomodoroTimer - 点击开始专注")
+            button.toolTip = settings.text(.idleTooltip)
         case .running:
             button.title = ""
-            button.toolTip = settings.text("PomodoroTimer - \(timer.timeText) remaining - Click to stop", "PomodoroTimer - 剩余 \(timer.timeText) - 点击停止")
+            button.toolTip = settings.text(.runningTooltip, timer.timeText)
         case .finished:
-            button.title = settings.text(" Time’s up", " 时间到")
-            button.toolTip = settings.text("PomodoroTimer - Please dismiss the reminder", "PomodoroTimer - 请关闭提醒")
+            button.title = settings.text(.timesUpStatus)
+            button.toolTip = settings.text(.reminderTooltip)
         }
         button.attributedTitle = AppTypography.nativeText(button.title, size: 12)
     }
@@ -213,7 +213,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return true
         }
         image.isTemplate = false
-        image.accessibilityDescription = settings.text("PomodoroTimer - \(percent)% complete", "PomodoroTimer - 已完成 \(percent)%")
+        image.accessibilityDescription = settings.text(.progressDescription, percent)
         return image
     }
 
@@ -247,7 +247,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 contentRect: .zero, styleMask: [.titled],
                 backing: .buffered, defer: false
             )
-            panel.title = settings.text("Session complete", "本轮已完成")
+            panel.title = settings.text(.sessionComplete)
             let controller = NSHostingController(rootView: ReminderView(
                 settings: settings,
                 minutes: timer.selectedMinutes,
