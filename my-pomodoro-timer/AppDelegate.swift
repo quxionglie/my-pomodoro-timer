@@ -6,7 +6,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let timer: PomodoroTimer
     let settings: AppSettings
     private var statusItem: NSStatusItem!
-    private var idleStatusImage: NSImage?
     private var lastProgressPercent: Int?
     private let popover = NSPopover()
     private var statisticsWindow: NSWindow?
@@ -62,10 +61,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func configureStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        idleStatusImage = NSImage(systemSymbolName: "timer", accessibilityDescription: "PomodoroTimer")
-        idleStatusImage?.isTemplate = true
         if let button = statusItem.button {
-            button.image = idleStatusImage
             button.imagePosition = .imageLeading
             button.font = AppTypography.nativeFont(12)
             button.target = self
@@ -157,16 +153,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func updateStatusItem() {
         guard let button = statusItem?.button else { return }
-        if timer.phase == .running {
-            let percent = Int((min(1, max(0, timer.progress)) * 100).rounded(.down))
-            if percent != lastProgressPercent {
-                button.image = progressStatusImage(percent: percent)
-                lastProgressPercent = percent
-            }
-        } else {
-            lastProgressPercent = nil
-            if button.image !== idleStatusImage { button.image = idleStatusImage }
+        let percent = timer.phase == .idle
+            ? 100
+            : Int((min(1, max(0, timer.progress)) * 100).rounded(.down))
+        if percent != lastProgressPercent {
+            button.image = TimerIcon.image(percent: percent)
+            lastProgressPercent = percent
         }
+        button.image?.accessibilityDescription = timer.phase == .idle
+            ? settings.text(.idleTooltip)
+            : settings.text(.progressDescription, percent)
         switch timer.phase {
         case .idle:
             button.title = ""
@@ -179,42 +175,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             button.toolTip = settings.text(.reminderTooltip)
         }
         button.attributedTitle = AppTypography.nativeText(button.title, size: 12)
-    }
-
-    private func progressStatusImage(percent: Int) -> NSImage {
-        let image = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { _ in
-            let green = NSColor(calibratedRed: 0.56, green: 0.84, blue: 0.60, alpha: 1)
-            let elapsedAngle = Double(percent) * 3.6
-            // Four separated segments mark the quarter milestones, clockwise from noon.
-            for quarter in 0..<4 {
-                let start = Double(quarter) * 90 + 5
-                let end = Double(quarter + 1) * 90 - 5
-                let track = NSBezierPath()
-                track.appendArc(withCenter: NSPoint(x: 9, y: 9), radius: 6.5,
-                                startAngle: CGFloat(90 - start), endAngle: CGFloat(90 - end),
-                                clockwise: true)
-                track.lineWidth = 2.5
-                track.lineCapStyle = .butt
-                green.withAlphaComponent(0.3).setStroke()
-                track.stroke()
-
-                let filledEnd = min(end, elapsedAngle)
-                if filledEnd > start {
-                    let filled = NSBezierPath()
-                    filled.appendArc(withCenter: NSPoint(x: 9, y: 9), radius: 6.5,
-                                     startAngle: CGFloat(90 - start), endAngle: CGFloat(90 - filledEnd),
-                                     clockwise: true)
-                    filled.lineWidth = 2.5
-                    filled.lineCapStyle = .butt
-                    green.setStroke()
-                    filled.stroke()
-                }
-            }
-            return true
-        }
-        image.isTemplate = false
-        image.accessibilityDescription = settings.text(.progressDescription, percent)
-        return image
     }
 
     @objc private func togglePopover() {

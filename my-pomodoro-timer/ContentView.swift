@@ -13,8 +13,9 @@ struct ContentView: View {
     var body: some View {
         VStack(spacing: 20) {
             HStack(spacing: 10) {
-                Image(systemName: "timer")
-                    .font(.system(size: 24, weight: .semibold))
+                Image(nsImage: TimerIcon.image(percent: 100))
+                    .resizable()
+                    .frame(width: 24, height: 24)
                     .foregroundStyle(accent)
                 VStack(alignment: .leading, spacing: 3) {
                     Text("PomodoroTimer").font(AppTypography.medium(20))
@@ -156,5 +157,36 @@ struct ReminderView: View {
         .frame(width: 480)
         .background(Color(nsColor: .windowBackgroundColor))
         .environment(\.locale, settings.language.locale)
+    }
+}
+
+// Shared by the menu bar and the controls header.
+enum TimerIcon {
+    static func image(percent: Int) -> NSImage {
+        let image = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { _ in
+            let center = NSPoint(x: 9, y: 9)
+            NSColor.black.setStroke()
+
+            // Keep the open dial fixed while the hand rotates.
+            let dial = NSBezierPath()
+            dial.appendArc(withCenter: center, radius: 7,
+                           startAngle: 90, endAngle: -210, clockwise: true)
+            dial.lineWidth = 1.7
+            dial.lineCapStyle = .round
+            dial.stroke()
+
+            // Sweep clockwise through 300°: noon at 0%, ten o'clock at 100%.
+            let angle = (90 - Double(percent) * 3) * .pi / 180
+            let hand = NSBezierPath()
+            hand.move(to: center)
+            hand.line(to: NSPoint(x: center.x + CGFloat(cos(angle)) * 4.5,
+                                 y: center.y + CGFloat(sin(angle)) * 4.5))
+            hand.lineWidth = 1.7
+            hand.lineCapStyle = .round
+            hand.stroke()
+            return true
+        }
+        image.isTemplate = true
+        return image
     }
 }
