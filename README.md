@@ -38,38 +38,27 @@
 
 ## 构建
 
-需要 macOS 和完整 Xcode。以下命令均在项目根目录执行，使用 `make help` 查看可用命令。
+需要 macOS 和完整 Xcode。Makefile 提供本地构建和应用测试；以下命令均在项目根目录执行，使用 `make help` 查看可用命令。
 
-本地 Debug 构建（Apple Silicon，无需分发证书，不上传）：
-
-```sh
-make debug
-```
-
-应用输出：`build/DerivedData/Build/Products/Debug/PomodoroTimer.app`。
-
-Release 签名和公证需要本机已安装 Developer ID Application 证书，并已在钥匙串保存公证凭据：
+本地构建（Apple Silicon，跳过签名，无需分发证书）：
 
 ```sh
-make sign       # 构建并签名，不上传
-make release    # 构建、签名、公证、附加票据和打包；默认等待 30m
+make debug  # Debug 构建
+make build  # Release 构建
 ```
 
-`make sign` 输出应用为 `build/PomodoroTimer.app`；`make release` 完成后，发布包为 `build/PomodoroTimer-v1.0-macOS.zip`。
+应用输出及日志：
 
-分步公证及查询：
+- Debug：`build/DerivedData/Build/Products/Debug/PomodoroTimer.app`，日志为 `build/debug-build.log`。
+- Release：`build/Release/Build/Products/Release/PomodoroTimer.app`，日志为 `build/release-build.log`。
 
-```sh
-make notarize   # 重新构建、签名、打包并提交公证
-make submit     # 重传已有公证 ZIP，不重新构建
-make status     # 查询最后一次保存的提交编号
-make wait       # 继续等待原提交，不重复上传
-make log        # 下载审核日志
-make staple     # 公证通过后附加票据并验证
-make package    # 将附加有效票据的应用压缩为发布包
-```
+可通过 `BUILD_DIR` 覆盖构建根目录，通过 `DERIVED_DATA`、`DEBUG_DERIVED_DATA` 分别指定 Release、Debug 的 Derived Data 目录。
 
-公证需要能够上传至 Apple 使用的 S3 端点。网络失败时流程会停止，不会自动重试。分步操作和配置见[签名与公证说明](docs/SIGNING_AND_NOTARIZATION.md)。
+## 发布
+
+目前正式版本的构建、归档、签名及上传公证均由开发者在 Xcode IDE 中人工操作：**Product → Archive → Organizer → Distribute App → Direct Distribution**。公证成功后导出 `PomodoroTimer.app`，在 Finder 中压缩并重命名为 `PomodoroTimer-v1.0-macOS.zip`，再手动上传到 GitHub Release 的独立附件区域。
+
+Makefile 不执行签名、上传、公证或打包；发布时使用 Xcode 导出的已公证应用。详细操作见[签名与公证说明](docs/SIGNING_AND_NOTARIZATION.md)。
 
 ## 验证
 
